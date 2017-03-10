@@ -17,10 +17,12 @@
 
 // This is where scripts' loading functions should be declared:
 void AddSC_Mall_Teleporter();
+void AddSC_Professions_NPC();
 
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
 void AddCustomScripts()
 {
 	AddSC_Mall_Teleporter();
+	AddSC_Professions_NPC();
 }
