@@ -16,13 +16,28 @@
  */
 
 // This is where scripts' loading functions should be declared:
-void AddSC_Mall_Teleporter();
-void AddSC_Professions_NPC();
+
 
 // The name of this function should match:
 // void Add${NameOfDirectory}Scripts()
+
+void AddSC_Professions_NPC();
+void AddSC_npc_enchantment();
+void AddSC_Mall_Teleporter();
+void AddSC_MTG_Npc_Enchants();
+void AddSC_MTG_Npc_Reset();
+void AddSC_MTG_Npc_Tools();
+void AddSC_MTG_TopHonor();
+void AddSC_MTG_TopKills();
+
 void AddCustomScripts()
 {
-	AddSC_Mall_Teleporter();
 	AddSC_Professions_NPC();
+	AddSC_npc_enchantment();
+	AddSC_Mall_Teleporter();
+	AddSC_MTG_Npc_Enchants();
+	AddSC_MTG_Npc_Reset();
+	AddSC_MTG_Npc_Tools();
+	AddSC_MTG_TopHonor();
+	AddSC_MTG_TopKills();
 }
