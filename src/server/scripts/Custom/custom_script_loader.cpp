@@ -29,6 +29,7 @@ void AddSC_MTG_Npc_Reset();
 void AddSC_MTG_Npc_Tools();
 void AddSC_MTG_TopHonor();
 void AddSC_MTG_TopKills();
+void AddSC_Npc_Beastmaster();
 
 void AddCustomScripts()
 {
@@ -40,4 +41,5 @@ void AddCustomScripts()
 	AddSC_MTG_Npc_Tools();
 	AddSC_MTG_TopHonor();
 	AddSC_MTG_TopKills();
+	AddSC_Npc_Beastmaster();
 }
