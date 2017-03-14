@@ -20,6 +20,7 @@ public:
         player->PlayerTalkClass->ClearMenus();
 		
 		uint32 $Token = player->HasItemCount(29434);
+		uint32 $Warsong_Token = 29434;
  
         if (uiSender == GOSSIP_SENDER_MAIN)
         {
@@ -41,7 +42,7 @@ public:
 				case 11:
 					if ($Token >= 1)
 					{
-						player->RemoveItem(29434, 1, true);
+						player->DestroyItemCount($Warsong_Token, 1, true);
 						player->ModifyArenaPoints(1000);
 						player->PlayerTalkClass->SendCloseGossip();
 					}
