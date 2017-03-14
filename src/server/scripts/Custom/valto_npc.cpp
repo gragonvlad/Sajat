@@ -35,7 +35,7 @@ public:
 					break;
 					
 				case 2:
-					AddGossipItemFor(player, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\trade_alchemy:30|t 1 token -> 50000 honor", GOSSIP_SENDER_MAIN, 21);
+					AddGossipItemFor(player, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\INV_Ingot_05:30|t 1 token -> 50000 honor", GOSSIP_SENDER_MAIN, 21);
 					player->PlayerTalkClass->SendGossipMenu(1, _creature->GetGUID());
 					break;
 					
