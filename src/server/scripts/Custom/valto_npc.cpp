@@ -41,7 +41,7 @@ public:
 				case 11:
 					if ($Token >= 1)
 					{
-						player->AddItem(29434, -1);
+						player->RemoveItem(29434, 1, true);
 						player->ModifyArenaPoints(1000);
 						player->PlayerTalkClass->SendCloseGossip();
 					}
