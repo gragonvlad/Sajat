@@ -48,8 +48,10 @@ public:
 						player->PlayerTalkClass->SendCloseGossip();
 					}
 					else
+					{
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
+					}
 						
 				case 12:
 					if ($Token >= 2)
@@ -59,8 +61,10 @@ public:
 						player->PlayerTalkClass->SendCloseGossip();
 					}
 					else
+					{
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
+					}
 						
 				case 13:
 					if ($Token >= 5)
@@ -70,8 +74,10 @@ public:
 						player->PlayerTalkClass->SendCloseGossip();
 					}
 					else
+					{
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
+					}
 					
 				/* Token váltása Honor Pontra */
 				case 21:
@@ -82,8 +88,10 @@ public:
 						player->PlayerTalkClass->SendCloseGossip();
 					}
 					else
+					{
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
+					}
 			}
  
  
