@@ -28,16 +28,22 @@ public:
             switch (uiAction)
             {
 				case 1:
+				{
 					AddGossipItemFor(player, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\INV_Ingot_05:30|t 1 token -> 1000 arena pont", GOSSIP_SENDER_MAIN, 11);
 					AddGossipItemFor(player, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\INV_Ingot_05:30|t 2 token -> 2000 arena pont", GOSSIP_SENDER_MAIN, 12);
 					AddGossipItemFor(player, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\INV_Ingot_05:30|t 5 token -> 5000 arena pont", GOSSIP_SENDER_MAIN, 13);
 					player->PlayerTalkClass->SendGossipMenu(1, _creature->GetGUID());
 					break;
+				}
+				return true;
 					
 				case 2:
+				{
 					AddGossipItemFor(player, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\INV_Ingot_05:30|t 1 token -> 50000 honor", GOSSIP_SENDER_MAIN, 21);
 					player->PlayerTalkClass->SendGossipMenu(1, _creature->GetGUID());
 					break;
+				}
+				return true;
 					
 				/* Token váltása Aréna Pontra */
 				case 11:
@@ -52,6 +58,7 @@ public:
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
 					}
+					break;
 						
 				case 12:
 					if ($Token >= 2)
@@ -65,6 +72,7 @@ public:
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
 					}
+					break;
 						
 				case 13:
 					if ($Token >= 5)
@@ -78,6 +86,7 @@ public:
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
 					}
+					break;
 					
 				/* Token váltása Honor Pontra */
 				case 21:
@@ -92,6 +101,8 @@ public:
 						_creature->TextEmote("Nincs elég tokened a váltáshoz! Kérlek gyere vissza később!", player);
 						player->PlayerTalkClass->SendCloseGossip();
 					}
+					break;
+				return true;
 			}
  
  
