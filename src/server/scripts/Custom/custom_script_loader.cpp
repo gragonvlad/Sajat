@@ -31,6 +31,7 @@ void AddSC_MTG_TopHonor();
 void AddSC_MTG_TopKills();
 void AddSC_Npc_Beastmaster();
 void AddSC_Npc_Valto();
+void AddSC_Transmogrification();
 
 void AddCustomScripts()
 {
@@ -44,4 +45,5 @@ void AddCustomScripts()
 	AddSC_MTG_TopKills();
 	AddSC_Npc_Beastmaster();
 	AddSC_Npc_Valto();
+	AddSC_Transmogrification();
 }

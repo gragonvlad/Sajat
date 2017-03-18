@@ -422,7 +422,7 @@ void MotionMaster::MoveKnockbackFrom(float srcX, float srcY, float speedXY, floa
     if (_owner->GetTypeId() == TYPEID_PLAYER)
         return;
 
-    if (speedXY <= 0.1f)
+    if (speedXY < 0.01f)
         return;
 
     float x, y, z;
@@ -458,7 +458,7 @@ void MotionMaster::MoveJumpTo(float angle, float speedXY, float speedZ)
 void MotionMaster::MoveJump(float x, float y, float z, float o, float speedXY, float speedZ, uint32 id, bool hasOrientation /* = false*/)
 {
     TC_LOG_DEBUG("misc", "Unit (GUID: %u) jumps to point (X: %f Y: %f Z: %f).", _owner->GetGUID().GetCounter(), x, y, z);
-    if (speedXY <= 0.1f)
+    if (speedXY < 0.01f)
         return;
 
     float moveTimeHalf = speedZ / Movement::gravity;
@@ -585,7 +585,10 @@ void MotionMaster::MoveFall(uint32 id /*=0*/)
 
     // don't run spline movement for players
     if (_owner->GetTypeId() == TYPEID_PLAYER)
+    {
+        _owner->ToPlayer()->SetFallInformation(0, _owner->GetPositionZ());
         return;
+    }
 
     Movement::MoveSplineInit init(_owner);
     init.MoveTo(_owner->GetPositionX(), _owner->GetPositionY(), tz, false);
@@ -678,15 +681,6 @@ void MotionMaster::MovePath(uint32 path_id, bool repeatable)
     TC_LOG_DEBUG("misc", "%s (GUID: %u) starts moving over path(Id:%u, repeatable: %s).",
         _owner->GetTypeId() == TYPEID_PLAYER ? "Player" : "Creature",
         _owner->GetGUID().GetCounter(), path_id, repeatable ? "YES" : "NO");
-}
-
-void MotionMaster::MovePath(WaypointPath& path, bool repeatable)
-{
-    Mutate(new WaypointMovementGenerator<Creature>(path, repeatable), MOTION_SLOT_IDLE);
-
-    TC_LOG_DEBUG("misc", "%s (GUID: %u) start moving over path(repeatable: %s)",
-        _owner->GetTypeId() == TYPEID_PLAYER ? "Player" : "Creature",
-        _owner->GetGUID().GetCounter(), repeatable ? "YES" : "NO");
 }
 
 void MotionMaster::MoveRotate(uint32 time, RotateDirection direction)

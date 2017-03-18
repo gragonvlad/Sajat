@@ -23,6 +23,7 @@
 #include "DatabaseEnv.h"
 #include "SharedDefines.h"
 #include "DBCEnums.h"
+#include "WorldPacket.h"
 
 #include <string>
 #include <vector>
@@ -304,10 +305,18 @@ class TC_GAME_API Quest
         uint32 GetRewChoiceItemsCount() const { return _rewChoiceItemsCount; }
         uint32 GetRewItemsCount() const { return _rewItemsCount; }
 
+        void SetEventIdForQuest(uint16 eventId) { _eventIdForQuest = eventId; }
+        uint16 GetEventIdForQuest() const { return _eventIdForQuest; }
+
+        static void AddQuestLevelToTitle(std::string& title, int32 level);
+        void InitializeQueryData();
+        WorldPacket BuildQueryData(LocaleConstant loc) const;
+
         typedef std::vector<int32> PrevQuests;
         PrevQuests prevQuests;
         typedef std::vector<uint32> PrevChainQuests;
         PrevChainQuests prevChainQuests;
+        WorldPacket QueryData[TOTAL_LOCALES];
 
         // cached data
     private:
@@ -315,6 +324,7 @@ class TC_GAME_API Quest
         uint32 _reqCreatureOrGOcount;
         uint32 _rewChoiceItemsCount;
         uint32 _rewItemsCount;
+        uint16 _eventIdForQuest;
 
         // table data
     protected:

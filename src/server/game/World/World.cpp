@@ -29,6 +29,7 @@
 #include "BattlegroundMgr.h"
 #include "CalendarMgr.h"
 #include "Channel.h"
+#include "CharacterCache.h"
 #include "CharacterDatabaseCleaner.h"
 #include "Chat.h"
 #include "Config.h"
@@ -39,6 +40,7 @@
 #include "DisableMgr.h"
 #include "GameEventMgr.h"
 #include "GameObjectModel.h"
+#include "GitRevision.h"
 #include "GridNotifiersImpl.h"
 #include "GroupMgr.h"
 #include "GuildMgr.h"
@@ -52,7 +54,7 @@
 #include "OutdoorPvPMgr.h"
 #include "Player.h"
 #include "PoolMgr.h"
-#include "GitRevision.h"
+#include "QueryCallback.h"
 #include "ScriptMgr.h"
 #include "ScriptReloadMgr.h"
 #include "SkillDiscovery.h"
@@ -68,6 +70,9 @@
 #include "WeatherMgr.h"
 #include "WorldSession.h"
 #include "M2Stores.h"
+#include "WhoListStorage.h"
+#include "GameTime.h"
+#include "UpdateTime.h"
 
 TC_GAME_API std::atomic<bool> World::m_stopEvent(false);
 TC_GAME_API uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;
@@ -90,8 +95,7 @@ World::World()
     m_allowMovement = true;
     m_ShutdownMask = 0;
     m_ShutdownTimer = 0;
-    m_gameTime = time(NULL);
-    m_startTime = m_gameTime;
+
     m_maxActiveSessionCount = 0;
     m_maxQueuedSessionCount = 0;
     m_PlayerCount = 0;
@@ -107,10 +111,6 @@ World::World()
 
     mail_timer = 0;
     mail_timer_expires = 0;
-    m_updateTime = 0;
-    m_updateTimeSum = 0;
-    m_updateTimeCount = 0;
-    m_currentTime = 0;
 
     m_isClosed = false;
 
@@ -399,6 +399,9 @@ void World::LoadConfigSettings(bool reload)
         sLog->LoadFromConfig();
         sMetric->LoadFromConfigs();
     }
+
+    // load update time related configs
+    sWorldUpdateTime.LoadFromConfig();
 
     ///- Read the player limit and the Message of the day from the config file
     SetPlayerAmountLimit(sConfigMgr->GetIntDefault("PlayerLimit", 100));
@@ -1105,13 +1108,11 @@ void World::LoadConfigSettings(bool reload)
     {
         // overwrite DB/old value
         if (clientCacheId > 0)
-        {
             m_int_configs[CONFIG_CLIENTCACHE_VERSION] = clientCacheId;
-            TC_LOG_INFO("server.loading", "Client cache version set to: %u", clientCacheId);
-        }
         else
             TC_LOG_ERROR("server.loading", "ClientCacheVersion can't be negative %d, ignored.", clientCacheId);
     }
+    TC_LOG_INFO("server.loading", "Client cache version set to: %u", m_int_configs[CONFIG_CLIENTCACHE_VERSION]);
 
     m_int_configs[CONFIG_GUILD_EVENT_LOG_COUNT] = sConfigMgr->GetIntDefault("Guild.EventLogRecordsCount", GUILD_EVENTLOG_MAX_RECORDS);
     if (m_int_configs[CONFIG_GUILD_EVENT_LOG_COUNT] > GUILD_EVENTLOG_MAX_RECORDS)
@@ -1249,8 +1250,6 @@ void World::LoadConfigSettings(bool reload)
     m_bool_configs[CONFIG_SHOW_KICK_IN_WORLD] = sConfigMgr->GetBoolDefault("ShowKickInWorld", false);
     m_bool_configs[CONFIG_SHOW_MUTE_IN_WORLD] = sConfigMgr->GetBoolDefault("ShowMuteInWorld", false);
     m_bool_configs[CONFIG_SHOW_BAN_IN_WORLD] = sConfigMgr->GetBoolDefault("ShowBanInWorld", false);
-    m_int_configs[CONFIG_INTERVAL_LOG_UPDATE] = sConfigMgr->GetIntDefault("RecordUpdateTimeDiffInterval", 60000);
-    m_int_configs[CONFIG_MIN_LOG_UPDATE] = sConfigMgr->GetIntDefault("MinRecordUpdateTimeDiff", 100);
     m_int_configs[CONFIG_NUMTHREADS] = sConfigMgr->GetIntDefault("MapUpdate.Threads", 1);
     m_int_configs[CONFIG_MAX_RESULTS_LOOKUP_COMMANDS] = sConfigMgr->GetIntDefault("Command.LookupMaxResults", 0);
 
@@ -1351,6 +1350,9 @@ void World::LoadConfigSettings(bool reload)
 
     // Allow 5-man parties to use raid warnings
     m_bool_configs[CONFIG_CHAT_PARTY_RAID_WARNINGS] = sConfigMgr->GetBoolDefault("PartyRaidWarnings", false);
+
+    // Allow to cache data queries
+    m_bool_configs[CONFIG_CACHE_DATA_QUERIES] = sConfigMgr->GetBoolDefault("CacheDataQueries", true);
 
     // call ScriptMgr if we're reloading the configuration
     if (reload)
@@ -1470,6 +1472,10 @@ void World::SetInitialWorldSettings()
     // Must be called before `creature_respawn`/`gameobject_respawn` tables
     TC_LOG_INFO("server.loading", "Loading instances...");
     sInstanceSaveMgr->LoadInstances();
+
+    // Load before guilds and arena teams
+    TC_LOG_INFO("server.loading", "Loading character cache store...");
+    sCharacterCache->LoadCharacterCacheStorage();
 
     TC_LOG_INFO("server.loading", "Loading Broadcast texts...");
     sObjectMgr->LoadBroadcastTexts();
@@ -1846,13 +1852,15 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Loading Calendar data...");
     sCalendarMgr->LoadFromDB();
 
+    TC_LOG_INFO("server.loading", "Initialize query data...");
+    sObjectMgr->InitializeQueriesData(QUERY_DATA_ALL);
+
     ///- Initialize game time and timers
     TC_LOG_INFO("server.loading", "Initialize game time and timers");
-    m_gameTime = time(NULL);
-    m_startTime = m_gameTime;
+    GameTime::UpdateGameTimers();
 
     LoginDatabase.PExecute("INSERT INTO uptime (realmid, starttime, uptime, revision) VALUES(%u, %u, 0, '%s')",
-                            realm.Id.Realm, uint32(m_startTime), GitRevision::GetFullVersion());       // One-time query
+                            realm.Id.Realm, uint32(GameTime::GetStartTime()), GitRevision::GetFullVersion());       // One-time query
 
     m_timers[WUPDATE_WEATHERS].SetInterval(1*IN_MILLISECONDS);
     m_timers[WUPDATE_AUCTIONS].SetInterval(MINUTE*IN_MILLISECONDS);
@@ -1873,12 +1881,15 @@ void World::SetInitialWorldSettings()
 
     m_timers[WUPDATE_CHECK_FILECHANGES].SetInterval(500);
 
+    m_timers[WUPDATE_WHO_LIST].SetInterval(5 * IN_MILLISECONDS); // update who list cache every 5 seconds
+
     //to set mailtimer to return mails every day between 4 and 5 am
     //mailtimer is increased when updating auctions
     //one second is 1000 -(tested on win system)
     /// @todo Get rid of magic numbers
     tm localTm;
-    localtime_r(&m_gameTime, &localTm);
+    time_t gameTime = GameTime::GetGameTime();
+    localtime_r(&gameTime, &localTm);
     mail_timer = ((((localTm.tm_hour + 20) % 24)* HOUR * IN_MILLISECONDS) / m_timers[WUPDATE_AUCTIONS].GetInterval());
                                                             //1440
     mail_timer_expires = ((DAY * IN_MILLISECONDS) / (m_timers[WUPDATE_AUCTIONS].GetInterval()));
@@ -1953,8 +1964,6 @@ void World::SetInitialWorldSettings()
     TC_LOG_INFO("server.loading", "Calculate guild limitation(s) reset time...");
     InitGuildResetTime();
 
-    LoadCharacterInfoStore();
-
     // Preload all cells, if required for the base maps
     if (sWorld->getBoolConfig(CONFIG_BASEMAP_LOAD_GRIDS))
     {
@@ -2021,28 +2030,6 @@ void World::DetectDBCLang()
     TC_LOG_INFO("server.loading", "Using %s DBC Locale as default. All available DBC locales: %s", localeNames[m_defaultDbcLocale], availableLocalsStr.empty() ? "<none>" : availableLocalsStr.c_str());
 }
 
-void World::ResetTimeDiffRecord()
-{
-    if (m_updateTimeCount != 1)
-        return;
-
-    m_currentTime = getMSTime();
-}
-
-void World::RecordTimeDiff(std::string const& text)
-{
-    if (m_updateTimeCount != 1)
-        return;
-
-    uint32 thisTime = getMSTime();
-    uint32 diff = getMSTimeDiff(m_currentTime, thisTime);
-
-    if (diff > m_int_configs[CONFIG_MIN_LOG_UPDATE])
-        TC_LOG_INFO("misc", "Difftime %s: %u.", text.c_str(), diff);
-
-    m_currentTime = thisTime;
-}
-
 void World::LoadAutobroadcasts()
 {
     uint32 oldMSTime = getMSTime();
@@ -2080,22 +2067,14 @@ void World::LoadAutobroadcasts()
 /// Update the World !
 void World::Update(uint32 diff)
 {
-    m_updateTime = diff;
+    ///- Update the game time and check for shutdown time
+    _UpdateGameTime();
+    time_t currentGameTime = GameTime::GetGameTime();
 
-    if (m_int_configs[CONFIG_INTERVAL_LOG_UPDATE] && diff > m_int_configs[CONFIG_MIN_LOG_UPDATE])
-    {
-        if (m_updateTimeSum > m_int_configs[CONFIG_INTERVAL_LOG_UPDATE])
-        {
-            TC_LOG_DEBUG("misc", "Update time diff: %u. Players online: %u.", m_updateTimeSum / m_updateTimeCount, GetActiveSessionCount());
-            m_updateTimeSum = m_updateTime;
-            m_updateTimeCount = 1;
-        }
-        else
-        {
-            m_updateTimeSum += m_updateTime;
-            ++m_updateTimeCount;
-        }
-    }
+    sWorldUpdateTime.UpdateWithDiff(diff);
+
+    // Record update if recording set in log and diff is greater then minimum set in log
+    sWorldUpdateTime.RecordUpdateTime(GameTime::GetGameTimeMS(), diff, GetActiveSessionCount());
 
     ///- Update the different timers
     for (int i = 0; i < WUPDATE_COUNT; ++i)
@@ -2106,28 +2085,32 @@ void World::Update(uint32 diff)
             m_timers[i].SetCurrent(0);
     }
 
-    ///- Update the game time and check for shutdown time
-    _UpdateGameTime();
+    ///- Update Who List Storage
+    if (m_timers[WUPDATE_WHO_LIST].Passed())
+    {
+        m_timers[WUPDATE_WHO_LIST].Reset();
+        sWhoListStorageMgr->Update();
+    }
 
     /// Handle daily quests reset time
-    if (m_gameTime > m_NextDailyQuestReset)
+    if (currentGameTime > m_NextDailyQuestReset)
     {
         ResetDailyQuests();
         InitDailyQuestResetTime(false);
     }
 
     /// Handle weekly quests reset time
-    if (m_gameTime > m_NextWeeklyQuestReset)
+    if (currentGameTime > m_NextWeeklyQuestReset)
         ResetWeeklyQuests();
 
     /// Handle monthly quests reset time
-    if (m_gameTime > m_NextMonthlyQuestReset)
+    if (currentGameTime > m_NextMonthlyQuestReset)
         ResetMonthlyQuests();
 
-    if (m_gameTime > m_NextRandomBGReset)
+    if (currentGameTime > m_NextRandomBGReset)
         ResetRandomBG();
 
-    if (m_gameTime > m_NextGuildReset)
+    if (currentGameTime > m_NextGuildReset)
         ResetGuildCap();
 
     /// <ul><li> Handle auctions when the timer has passed
@@ -2169,9 +2152,9 @@ void World::Update(uint32 diff)
     }
 
     /// <li> Handle session updates when the timer has passed
-    ResetTimeDiffRecord();
+    sWorldUpdateTime.RecordUpdateTimeReset();
     UpdateSessions(diff);
-    RecordTimeDiff("UpdateSessions");
+    sWorldUpdateTime.RecordUpdateTimeDuration("UpdateSessions");
 
     /// <li> Handle weather updates when the timer has passed
     if (m_timers[WUPDATE_WEATHERS].Passed())
@@ -2183,7 +2166,7 @@ void World::Update(uint32 diff)
     /// <li> Update uptime table
     if (m_timers[WUPDATE_UPTIME].Passed())
     {
-        uint32 tmpDiff = uint32(m_gameTime - m_startTime);
+        uint32 tmpDiff = GameTime::GetUptime();
         uint32 maxOnlinePlayers = GetMaxPlayerCount();
 
         m_timers[WUPDATE_UPTIME].Reset();
@@ -2193,7 +2176,7 @@ void World::Update(uint32 diff)
         stmt->setUInt32(0, tmpDiff);
         stmt->setUInt16(1, uint16(maxOnlinePlayers));
         stmt->setUInt32(2, realm.Id.Realm);
-        stmt->setUInt32(3, uint32(m_startTime));
+        stmt->setUInt32(3, uint32(GameTime::GetStartTime()));
 
         LoginDatabase.Execute(stmt);
     }
@@ -2217,9 +2200,9 @@ void World::Update(uint32 diff)
 
     /// <li> Handle all other objects
     ///- Update objects when the timer has passed (maps, transport, creatures, ...)
-    ResetTimeDiffRecord();
+    sWorldUpdateTime.RecordUpdateTimeReset();
     sMapMgr->Update(diff);
-    RecordTimeDiff("UpdateMapMgr");
+    sWorldUpdateTime.RecordUpdateTimeDuration("UpdateMapMgr");
 
     if (sWorld->getBoolConfig(CONFIG_AUTOBROADCAST))
     {
@@ -2231,13 +2214,13 @@ void World::Update(uint32 diff)
     }
 
     sBattlegroundMgr->Update(diff);
-    RecordTimeDiff("UpdateBattlegroundMgr");
+    sWorldUpdateTime.RecordUpdateTimeDuration("UpdateBattlegroundMgr");
 
     sOutdoorPvPMgr->Update(diff);
-    RecordTimeDiff("UpdateOutdoorPvPMgr");
+    sWorldUpdateTime.RecordUpdateTimeDuration("UpdateOutdoorPvPMgr");
 
     sBattlefieldMgr->Update(diff);
-    RecordTimeDiff("BattlefieldMgr");
+    sWorldUpdateTime.RecordUpdateTimeDuration("BattlefieldMgr");
 
     ///- Delete all characters which have been deleted X days before
     if (m_timers[WUPDATE_DELETECHARS].Passed())
@@ -2247,11 +2230,11 @@ void World::Update(uint32 diff)
     }
 
     sLFGMgr->Update(diff);
-    RecordTimeDiff("UpdateLFGMgr");
+    sWorldUpdateTime.RecordUpdateTimeDuration("UpdateLFGMgr");
 
     // execute callbacks from sql queries that were queued recently
     ProcessQueryCallbacks();
-    RecordTimeDiff("ProcessQueryCallbacks");
+    sWorldUpdateTime.RecordUpdateTimeDuration("ProcessQueryCallbacks");
 
     ///- Erase corpses once every 20 minutes
     if (m_timers[WUPDATE_CORPSES].Passed())
@@ -2598,7 +2581,7 @@ bool World::RemoveBanAccount(BanMode mode, std::string const& nameOrIP)
         if (mode == BAN_ACCOUNT)
             account = AccountMgr::GetId(nameOrIP);
         else if (mode == BAN_CHARACTER)
-            account = sObjectMgr->GetPlayerAccountIdByPlayerName(nameOrIP);
+            account = sCharacterCache->GetCharacterAccountIdByName(nameOrIP);
 
         if (!account)
             return false;
@@ -2614,25 +2597,22 @@ bool World::RemoveBanAccount(BanMode mode, std::string const& nameOrIP)
 /// Ban an account or ban an IP address, duration will be parsed using TimeStringToSecs if it is positive, otherwise permban
 BanReturn World::BanCharacter(std::string const& name, std::string const& duration, std::string const& reason, std::string const& author)
 {
-    Player* pBanned = ObjectAccessor::FindConnectedPlayerByName(name);
+    Player* banned = ObjectAccessor::FindConnectedPlayerByName(name);
     ObjectGuid::LowType guid = 0;
 
     uint32 duration_secs = TimeStringToSecs(duration);
 
     /// Pick a player to ban if not online
-    if (!pBanned)
+    if (!banned)
     {
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME);
-        stmt->setString(0, name);
-        PreparedQueryResult resultCharacter = CharacterDatabase.Query(stmt);
-
-        if (!resultCharacter)
+        ObjectGuid fullGuid = sCharacterCache->GetCharacterGuidByName(name);
+        if (fullGuid.IsEmpty())
             return BAN_NOTFOUND;                                    // Nobody to ban
 
-        guid = (*resultCharacter)[0].GetUInt32();
+        guid = fullGuid.GetCounter();
     }
     else
-        guid = pBanned->GetGUID().GetCounter();
+        guid = banned->GetGUID().GetCounter();
 
     // make sure there is only one active ban
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHARACTER_BAN);
@@ -2646,8 +2626,8 @@ BanReturn World::BanCharacter(std::string const& name, std::string const& durati
     stmt->setString(3, reason);
     CharacterDatabase.Execute(stmt);
 
-    if (pBanned)
-        pBanned->GetSession()->KickPlayer();
+    if (banned)
+        banned->GetSession()->KickPlayer();
 
     return BAN_SUCCESS;
 }
@@ -2655,23 +2635,20 @@ BanReturn World::BanCharacter(std::string const& name, std::string const& durati
 /// Remove a ban from a character
 bool World::RemoveBanCharacter(std::string const& name)
 {
-    Player* pBanned = ObjectAccessor::FindConnectedPlayerByName(name);
+    Player* banned = ObjectAccessor::FindConnectedPlayerByName(name);
     ObjectGuid::LowType guid = 0;
 
     /// Pick a player to ban if not online
-    if (!pBanned)
+    if (!banned)
     {
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_GUID_BY_NAME);
-        stmt->setString(0, name);
-        PreparedQueryResult resultCharacter = CharacterDatabase.Query(stmt);
-
-        if (!resultCharacter)
+        ObjectGuid fullGuid = sCharacterCache->GetCharacterGuidByName(name);
+        if (fullGuid.IsEmpty())
             return false;
 
-        guid = (*resultCharacter)[0].GetUInt32();
+        guid = fullGuid.GetCounter();
     }
     else
-        guid = pBanned->GetGUID().GetCounter();
+        guid = banned->GetGUID().GetCounter();
 
     if (!guid)
         return false;
@@ -2686,9 +2663,10 @@ bool World::RemoveBanCharacter(std::string const& name)
 void World::_UpdateGameTime()
 {
     ///- update the time
-    time_t thisTime = time(NULL);
-    uint32 elapsed = uint32(thisTime - m_gameTime);
-    m_gameTime = thisTime;
+    time_t lastGameTime = GameTime::GetGameTime();
+    GameTime::UpdateGameTimers();
+
+    uint32 elapsed = uint32(GameTime::GetGameTime() - lastGameTime);
 
     ///- if there is a shutdown timer
     if (!IsStopped() && m_ShutdownTimer > 0 && elapsed > 0)
@@ -2909,7 +2887,7 @@ void World::UpdateRealmCharCount(uint32 accountId)
 {
     PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_COUNT);
     stmt->setUInt32(0, accountId);
-    m_realmCharCallbacks.push_back(CharacterDatabase.AsyncQuery(stmt));
+    _queryProcessor.AddQuery(CharacterDatabase.AsyncQuery(stmt).WithPreparedCallback(std::bind(&World::_UpdateRealmCharCount, this, std::placeholders::_1)));
 }
 
 void World::_UpdateRealmCharCount(PreparedQueryResult resultCharCount)
@@ -3271,121 +3249,7 @@ uint64 World::getWorldState(uint32 index) const
 
 void World::ProcessQueryCallbacks()
 {
-    PreparedQueryResult result;
-
-    for (std::deque<std::future<PreparedQueryResult>>::iterator itr = m_realmCharCallbacks.begin(); itr != m_realmCharCallbacks.end(); )
-    {
-        if ((*itr).wait_for(std::chrono::seconds(0)) != std::future_status::ready)
-        {
-            ++itr;
-            continue;
-        }
-
-        result = (*itr).get();
-        _UpdateRealmCharCount(result);
-        itr = m_realmCharCallbacks.erase(itr);
-    }
-}
-
-CharacterInfo const* World::GetCharacterInfo(ObjectGuid const& guid) const
-{
-    CharacterInfoContainer::const_iterator itr = _characterInfoStore.find(guid);
-    if (itr != _characterInfoStore.end())
-        return &itr->second;
-
-    return nullptr;
-}
-
-/**
-* @brief Loads several pieces of information on server startup with the GUID
-* There is no further database query necessary.
-* These are a number of methods that work into the calling function.
-*
-* @param guid Requires a guid to call
-* @return Name, Gender, Race, Class and Level of player character
-* Example Usage:
-* @code
-*    CharacterInfo const* characterInfo = sWorld->GetCharacterInfo(GUID);
-*    if (!characterInfo)
-*        return;
-*
-*    std::string playerName = characterInfo->Name;
-*    uint8 playerGender = characterInfo->Sex;
-*    uint8 playerRace = characterInfo->Race;
-*    uint8 playerClass = characterInfo->Class;
-*    uint8 playerLevel = characterInfo->Level;
-* @endcode
-**/
-
-void World::LoadCharacterInfoStore()
-{
-    TC_LOG_INFO("server.loading", "Loading character info store");
-
-    _characterInfoStore.clear();
-
-    QueryResult result = CharacterDatabase.Query("SELECT guid, name, account, race, gender, class, level FROM characters");
-    if (!result)
-    {
-        TC_LOG_INFO("server.loading", "No character name data loaded, empty query");
-        return;
-    }
-
-    do
-    {
-        Field* fields = result->Fetch();
-        AddCharacterInfo(ObjectGuid::Create<HighGuid::Player>(fields[0].GetUInt32()), fields[2].GetUInt32(), fields[1].GetString(),
-            fields[4].GetUInt8() /*gender*/, fields[3].GetUInt8() /*race*/, fields[5].GetUInt8() /*class*/, fields[6].GetUInt8() /*level*/);
-    } while (result->NextRow());
-
-    TC_LOG_INFO("server.loading", "Loaded character infos for " SZFMTD " characters", _characterInfoStore.size());
-}
-
-void World::AddCharacterInfo(ObjectGuid const& guid, uint32 accountId, std::string const& name, uint8 gender, uint8 race, uint8 playerClass, uint8 level)
-{
-    CharacterInfo& data = _characterInfoStore[guid];
-    data.Name = name;
-    data.AccountId = accountId;
-    data.Race = race;
-    data.Sex = gender;
-    data.Class = playerClass;
-    data.Level = level;
-}
-
-void World::UpdateCharacterInfo(ObjectGuid const& guid, std::string const& name, uint8 gender /*= GENDER_NONE*/, uint8 race /*= RACE_NONE*/)
-{
-    CharacterInfoContainer::iterator itr = _characterInfoStore.find(guid);
-    if (itr == _characterInfoStore.end())
-        return;
-
-    itr->second.Name = name;
-
-    if (gender != GENDER_NONE)
-        itr->second.Sex = gender;
-
-    if (race != RACE_NONE)
-        itr->second.Race = race;
-
-    WorldPacket data(SMSG_INVALIDATE_PLAYER, 8);
-    data << guid;
-    SendGlobalMessage(&data);
-}
-
-void World::UpdateCharacterInfoLevel(ObjectGuid const& guid, uint8 level)
-{
-    CharacterInfoContainer::iterator itr = _characterInfoStore.find(guid);
-    if (itr == _characterInfoStore.end())
-        return;
-
-    itr->second.Level = level;
-}
-
-void World::UpdateCharacterInfoAccount(ObjectGuid const& guid, uint32 accountId)
-{
-    auto itr = _characterInfoStore.find(guid);
-    if (itr == _characterInfoStore.end())
-        return;
-
-    itr->second.AccountId = accountId;
+    _queryProcessor.ProcessReadyQueries();
 }
 
 void World::ReloadRBAC()

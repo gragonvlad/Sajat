@@ -26,11 +26,13 @@
 #include "Opcodes.h"
 #include "Spell.h"
 #include "Totem.h"
+#include "Transmogrification.h"
 #include "ScriptMgr.h"
 #include "GameObjectAI.h"
 #include "SpellAuraEffects.h"
 #include "Player.h"
 #include "Config.h"
+#include "QueryCallback.h"
 
 void WorldSession::HandleClientCastFlags(WorldPacket& recvPacket, uint8 castFlags, SpellCastTargets& targets)
 {
@@ -169,38 +171,44 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
 {
     TC_LOG_DEBUG("network", "WORLD: CMSG_OPEN_ITEM packet, data length = %i", (uint32)recvPacket.size());
 
-    Player* pUser = _player;
+    Player* player = GetPlayer();
 
     // ignore for remote control state
-    if (pUser->m_unitMovedByMe != pUser)
+    if (player->m_unitMovedByMe != player)
         return;
 
-    uint8 bagIndex, slot;
+    // additional check, client outputs message on its own
+    if (!player->IsAlive())
+    {
+        player->SendEquipError(EQUIP_ERR_YOU_ARE_DEAD, nullptr, nullptr);
+        return;
+    }
 
+    uint8 bagIndex, slot;
     recvPacket >> bagIndex >> slot;
 
     TC_LOG_INFO("network", "bagIndex: %u, slot: %u", bagIndex, slot);
 
-    Item* item = pUser->GetItemByPos(bagIndex, slot);
+    Item* item = player->GetItemByPos(bagIndex, slot);
     if (!item)
     {
-        pUser->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, NULL, NULL);
+        player->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, nullptr, nullptr);
         return;
     }
 
     ItemTemplate const* proto = item->GetTemplate();
     if (!proto)
     {
-        pUser->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, item, NULL);
+        player->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, item, nullptr);
         return;
     }
 
     // Verify that the bag is an actual bag or wrapped item that can be used "normally"
     if (!(proto->Flags & ITEM_FLAG_HAS_LOOT) && !item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_WRAPPED))
     {
-        pUser->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, item, NULL);
+        player->SendEquipError(EQUIP_ERR_CANT_DO_RIGHT_NOW, item, NULL);
         TC_LOG_ERROR("entities.player.cheat", "Possible hacking attempt: Player %s [guid: %u] tried to open item [guid: %u, entry: %u] which is not openable!",
-                pUser->GetName().c_str(), pUser->GetGUID().GetCounter(), item->GetGUID().GetCounter(), proto->ItemId);
+            player->GetName().c_str(), player->GetGUID().GetCounter(), item->GetGUID().GetCounter(), proto->ItemId);
         return;
     }
 
@@ -212,7 +220,7 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
 
         if (!lockInfo)
         {
-            pUser->SendEquipError(EQUIP_ERR_ITEM_LOCKED, item, NULL);
+            player->SendEquipError(EQUIP_ERR_ITEM_LOCKED, item, nullptr);
             TC_LOG_ERROR("network", "WORLD::OpenItem: item [guid = %u] has an unknown lockId: %u!", item->GetGUID().GetCounter(), lockId);
             return;
         }
@@ -220,7 +228,7 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
         // was not unlocked yet
         if (item->IsLocked())
         {
-            pUser->SendEquipError(EQUIP_ERR_ITEM_LOCKED, item, NULL);
+            player->SendEquipError(EQUIP_ERR_ITEM_LOCKED, item, nullptr);
             return;
         }
     }
@@ -228,37 +236,51 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
     if (item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_WRAPPED))// wrapped?
     {
         PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_GIFT_BY_ITEM);
-
         stmt->setUInt32(0, item->GetGUID().GetCounter());
-
-        PreparedQueryResult result = CharacterDatabase.Query(stmt);
-
-        if (result)
-        {
-            Field* fields = result->Fetch();
-            uint32 entry = fields[0].GetUInt32();
-            uint32 flags = fields[1].GetUInt32();
-
-            item->SetGuidValue(ITEM_FIELD_GIFTCREATOR, ObjectGuid::Empty);
-            item->SetEntry(entry);
-            item->SetUInt32Value(ITEM_FIELD_FLAGS, flags);
-            item->SetState(ITEM_CHANGED, pUser);
-        }
-        else
-        {
-            TC_LOG_ERROR("network", "Wrapped item %u don't have record in character_gifts table and will deleted", item->GetGUID().GetCounter());
-            pUser->DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
-            return;
-        }
-
-        stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GIFT);
-
-        stmt->setUInt32(0, item->GetGUID().GetCounter());
-
-        CharacterDatabase.Execute(stmt);
+        _queryProcessor.AddQuery(CharacterDatabase.AsyncQuery(stmt)
+            .WithPreparedCallback(std::bind(&WorldSession::HandleOpenWrappedItemCallback, this, item->GetPos(), item->GetGUID(), std::placeholders::_1)));
     }
     else
-        pUser->SendLoot(item->GetGUID(), LOOT_CORPSE);
+        player->SendLoot(item->GetGUID(), LOOT_CORPSE);
+}
+
+void WorldSession::HandleOpenWrappedItemCallback(uint16 pos, ObjectGuid itemGuid, PreparedQueryResult result)
+{
+    if (!GetPlayer())
+        return;
+
+    Item* item = GetPlayer()->GetItemByPos(pos);
+    if (!item)
+        return;
+
+    if (item->GetGUID() != itemGuid || !item->HasFlag(ITEM_FIELD_FLAGS, ITEM_FIELD_FLAG_WRAPPED)) // during getting result, gift was swapped with another item
+        return;
+
+    if (!result)
+    {
+        TC_LOG_ERROR("network", "Wrapped item %u don't have record in character_gifts table and will deleted", itemGuid.GetCounter());
+        GetPlayer()->DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
+        return;
+    }
+
+    SQLTransaction trans = CharacterDatabase.BeginTransaction();
+
+    Field* fields = result->Fetch();
+    uint32 entry = fields[0].GetUInt32();
+    uint32 flags = fields[1].GetUInt32();
+
+    item->SetGuidValue(ITEM_FIELD_GIFTCREATOR, ObjectGuid::Empty);
+    item->SetEntry(entry);
+    item->SetUInt32Value(ITEM_FIELD_FLAGS, flags);
+    item->SetState(ITEM_CHANGED, GetPlayer());
+
+    GetPlayer()->SaveInventoryAndGoldToDB(trans);
+
+    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GIFT);
+    stmt->setUInt32(0, itemGuid.GetCounter());
+    trans->Append(stmt);
+
+    CharacterDatabase.CommitTransaction(trans);
 }
 
 void WorldSession::HandleGameObjectUseOpcode(WorldPacket& recvData)
@@ -292,7 +314,7 @@ void WorldSession::HandleGameobjectReportUse(WorldPacket& recvPacket)
 
     if (GameObject* go = GetPlayer()->GetGameObjectIfCanInteractWith(guid))
     {
-        if (go->AI()->GossipHello(_player))
+        if (go->AI()->GossipHello(_player, true))
             return;
 
         _player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_USE_GAMEOBJECT, go->GetEntry());
@@ -625,7 +647,12 @@ void WorldSession::HandleMirrorImageDataRequest(WorldPacket& recvData)
             else if (*itr == EQUIPMENT_SLOT_BACK && player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_CLOAK))
                 data << uint32(0);
             else if (Item const* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, *itr))
-                data << uint32(item->GetTemplate()->DisplayInfoID);
+            {
+                if (uint32 entry = sTransmogrification->GetFakeEntry(item))
+                    data << uint32(sObjectMgr->GetItemTemplate(entry)->DisplayInfoID);
+                else
+                    data << uint32(item->GetTemplate()->DisplayInfoID);
+            }
             else
                 data << uint32(0);
         }
@@ -679,6 +706,9 @@ void WorldSession::HandleUpdateProjectilePosition(WorldPacket& recvPacket)
     Position pos = *spell->m_targets.GetDstPos();
     pos.Relocate(x, y, z);
     spell->m_targets.ModDst(pos);
+
+    // we changed dest, recalculate flight time
+    spell->RecalculateDelayMomentForDst();
 
     WorldPacket data(SMSG_SET_PROJECTILE_POSITION, 21);
     data << uint64(casterGuid);

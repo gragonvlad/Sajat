@@ -25,6 +25,7 @@
 #include "GridReference.h"
 #include "ObjectDefines.h"
 #include "Map.h"
+#include "ModelIgnoreFlags.h"
 
 #include <set>
 #include <string>
@@ -148,7 +149,6 @@ class TC_GAME_API Object
         void ApplyModUInt64Value(uint16 index, int32 val, bool apply);
         void ApplyModPositiveFloatValue(uint16 index, float val, bool apply);
         void ApplyModSignedFloatValue(uint16 index, float val, bool apply);
-        void ApplyPercentModFloatValue(uint16 index, float val, bool apply);
 
         void SetFlag(uint16 index, uint32 newFlag);
         void RemoveFlag(uint16 index, uint32 oldFlag);
@@ -489,8 +489,8 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         // use only if you will sure about placing both object at same map
         bool IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D = true) const;
         bool IsWithinDistInMap(WorldObject const* obj, float dist2compare, bool is3D = true) const;
-        bool IsWithinLOS(float x, float y, float z) const;
-        bool IsWithinLOSInMap(WorldObject const* obj) const;
+        bool IsWithinLOS(float x, float y, float z, VMAP::ModelIgnoreFlags ignoreFlags = VMAP::ModelIgnoreFlags::Nothing) const;
+        bool IsWithinLOSInMap(WorldObject const* obj, VMAP::ModelIgnoreFlags ignoreFlags = VMAP::ModelIgnoreFlags::Nothing) const;
         Position GetHitSpherePointFor(Position const& dest) const;
         void GetHitSpherePointFor(Position const& dest, float& x, float& y, float& z) const;
         bool GetDistanceOrder(WorldObject const* obj1, WorldObject const* obj2, bool is3D = true) const;
@@ -505,9 +505,9 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
 
         virtual void CleanupsBeforeDelete(bool finalCleanup = true);  // used in destructor or explicitly before mass creature delete to remove cross-references to already deleted units
 
-        virtual void SendMessageToSet(WorldPacket* data, bool self);
-        virtual void SendMessageToSetInRange(WorldPacket* data, float dist, bool self);
-        virtual void SendMessageToSet(WorldPacket* data, Player const* skipped_rcvr);
+        virtual void SendMessageToSet(WorldPacket const* data, bool self);
+        virtual void SendMessageToSetInRange(WorldPacket const* data, float dist, bool self);
+        virtual void SendMessageToSet(WorldPacket const* data, Player const* skipped_rcvr);
 
         virtual uint8 getLevelForTarget(WorldObject const* /*target*/) const { return 1; }
 
@@ -557,6 +557,7 @@ class TC_GAME_API WorldObject : public Object, public WorldLocation
         Creature*   FindNearestCreature(uint32 entry, float range, bool alive = true) const;
         GameObject* FindNearestGameObject(uint32 entry, float range) const;
         GameObject* FindNearestGameObjectOfType(GameobjectTypes type, float range) const;
+        Player* SelectNearestPlayer(float distance) const;
 
         template <typename Container>
         void GetGameObjectListWithEntryInGrid(Container& gameObjectContainer, uint32 entry, float maxSearchRange = 250.0f) const;

@@ -182,8 +182,8 @@ Item* PlayerAddItem(Player* player, uint32 item_id)
  
     if (noSpaceForCount > 0)
     {
-        player->GetSession()->SendNotification("Please make room in your "
-            "inventory first.");
+        player->GetSession()->SendNotification("Kérlek először csinálj egy szabad helyet "
+            "az inventoriban.");
         return NULL;
     }
     return item;
@@ -209,7 +209,7 @@ void Enchant(Player* player, Creature* creature, Item* item, uint32 enchantid)
 {
     if (!item)
     {
-        player->GetSession()->SendNotification("Please equip an item first.");
+        player->GetSession()->SendNotification("Először válaszd ki az itemet.");
         return;
     }
  
@@ -221,7 +221,7 @@ void Enchant(Player* player, Creature* creature, Item* item, uint32 enchantid)
     case ENCHANT_WEP_MASSACRE:
         if (item->GetTemplate()->InventoryType != INVTYPE_2HWEAPON)
         {
-            creature->Whisper("That isn't a two-handed weapon", LANG_UNIVERSAL, player, false);
+            creature->Whisper("Ez nem 2 kezes fegyver", LANG_UNIVERSAL, player, false);
             return;
         }
         break;
@@ -233,7 +233,7 @@ void Enchant(Player* player, Creature* creature, Item* item, uint32 enchantid)
     case ENCHANT_SHIELD_TITANIUM_SPIKE:
         if (item->GetTemplate()->InventoryType != INVTYPE_SHIELD)
         {
-            creature->Whisper("That isn't a shield", LANG_UNIVERSAL, player, false);
+            creature->Whisper("Ez nem shield", LANG_UNIVERSAL, player, false);
             return;
         }
         break;
@@ -242,7 +242,7 @@ void Enchant(Player* player, Creature* creature, Item* item, uint32 enchantid)
         if (item->GetTemplate()->InventoryType != INVTYPE_RANGED &&
             item->GetTemplate()->InventoryType != INVTYPE_RANGEDRIGHT)
         {
-            creature->Whisper("That isn't a ranged weapon", LANG_UNIVERSAL, player, false);
+            creature->Whisper("Nem ranged fegyver", LANG_UNIVERSAL, player, false);
             return;
         }
         break;
@@ -274,7 +274,7 @@ void Enchant(Player* player, Creature* creature, Item* item, uint32 enchantid)
  
     const char* item_name = item->GetTemplate()->Name1.c_str();
     char* message;
-    player->GetSession()->SendNotification("|cff0000FF%s |cffFF0000succesfully enchanted!", item->GetTemplate()->Name1.c_str());
+    player->GetSession()->SendNotification("|cff0000FF%s |cffFF0000enchant sikeresen megtörtént!", item->GetTemplate()->Name1.c_str());
 }
  
 class npc_enchantment : public CreatureScript
@@ -366,7 +366,7 @@ public:
             ENCHANT_WEP_TITANGUARD);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Titanium Weapon Chain -- Less Disarm Time", GOSSIP_SENDER_MAIN,
             ENCHANT_WEP_TITANIUM_CHAIN);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -402,7 +402,7 @@ public:
             ENCHANT_WEP_MASSACRE);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Mongoose --120 Agility Proc", GOSSIP_SENDER_MAIN,
             ENCHANT_WEP_MONGOOSE);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -421,7 +421,7 @@ public:
             ENCHANT_SHIELD_TITANIUM_PLATING);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Titanium Shield Spike -- 81 Block + 50% less Disarm", GOSSIP_SENDER_MAIN,
             ENCHANT_SHIELD_TITANIUM_SPIKE);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -442,7 +442,7 @@ public:
             ENCHANT_HEAD_TORMENT);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Arcanum of Triumph -- 50 Attack Power + 20 Resil", GOSSIP_SENDER_MAIN,
             ENCHANT_HEAD_TRIUMPH);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -474,7 +474,7 @@ public:
             ENCHANT_SHOULDER_DOMINANCE);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Inscription of Triumph -- 40 Attack Power + 15 Resil", GOSSIP_SENDER_MAIN,
             ENCHANT_SHOULDER_TRIUMPH);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -512,7 +512,7 @@ public:
             ENCHANT_CLOAK_MAJOR_AGILITY);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Greater Speed -- 23 Haste", GOSSIP_SENDER_MAIN,
             ENCHANT_CLOAK_GREATER_SPEED);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -529,7 +529,7 @@ public:
             ENCHANT_CHEST_SUPER_HEALTH);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "10 of all stats", GOSSIP_SENDER_MAIN,
             ENCHANT_CHEST_ALL_STATS);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -572,7 +572,7 @@ public:
         if (player->HasSkill(SKILL_BLACKSMITHING) && player->GetSkillValue(SKILL_BLACKSMITHING) >= 450)
             AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Socket Bracer", GOSSIP_SENDER_MAIN,
                 ENCHANT_BRACER_SOCKET_BRACER);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -601,7 +601,7 @@ public:
             AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Hyperspeed Accelerators", GOSSIP_SENDER_MAIN,
                 ENCHANT_GLOVES_HYPERSPEED_ACCELERATORS);
         }
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -613,7 +613,7 @@ public:
         if (player->HasSkill(SKILL_ENGINEERING) && player->GetSkillValue(SKILL_ENGINEERING) >= 450)
             AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Frag Belt", GOSSIP_SENDER_MAIN,
                 ENCHANT_BELT_FRAG_BELT);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -630,7 +630,7 @@ public:
             ENCHANT_LEGS_SAPPHIRE_SPELLTHREAD);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Brilliant Spellthread -- 50 SP 22 Spirit", GOSSIP_SENDER_MAIN,
             ENCHANT_LEGS_BRILLIANT_SPELLTHREAD);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -652,7 +652,7 @@ public:
             ENCHANT_BOOTS_SUPERIOR_AGILITY);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Tuskarr's Vitality -- 15 Stam + Speed Increase", GOSSIP_SENDER_MAIN,
             ENCHANT_BOOTS_TUSKARRS_VITALITY);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -665,7 +665,7 @@ public:
             ENCHANT_RING_GREATER_SPELLPOWER);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Stamina", GOSSIP_SENDER_MAIN,
             ENCHANT_RING_STAMINA);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -676,7 +676,7 @@ public:
             ENCHANT_RANGED_HEARTSEEKER_SCOPE);
         AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "Sun Scope", GOSSIP_SENDER_MAIN,
             ENCHANT_RANGED_SUN_SCOPE);
-        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, -1);
+        AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Vissza", GOSSIP_SENDER_MAIN, -1);
         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
     }
  
@@ -955,7 +955,7 @@ public:
                             GOSSIP_SENDER_MAIN,
                             GOSSIP_ACTION_INFO_DEF + 21);
                         AddGossipItemFor(player, GOSSIP_ICON_CHAT,
-                            "Back",
+                            "Vissza",
                             GOSSIP_SENDER_MAIN, -1);
                         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
                         selected_enchant = action;
@@ -978,7 +978,7 @@ public:
                             GOSSIP_SENDER_MAIN,
                             GOSSIP_ACTION_INFO_DEF + 21);
                         AddGossipItemFor(player, GOSSIP_ICON_CHAT,
-                            "Back",
+                            "Vissza",
                             GOSSIP_SENDER_MAIN, -1);
                         player->PlayerTalkClass->SendGossipMenu(1, creature->GetGUID());
                         selected_enchant = action;

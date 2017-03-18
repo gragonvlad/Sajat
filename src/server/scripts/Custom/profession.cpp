@@ -128,11 +128,11 @@ public:
     void CompleteLearnProfession(Player *pPlayer, Creature *pCreature, SkillType skill)
     {
         if (PlayerAlreadyHasTwoProfessions(pPlayer) && !IsSecondarySkill(skill))
-            pCreature->TextEmote("You already know two professions!", pPlayer);
+            pCreature->TextEmote("Neked már megvan a 2 őrofession skilled!", pPlayer);
         else
         {
             if (!LearnAllRecipesInProfession(pPlayer, skill))
-                pCreature->TextEmote("Internal error occured!", pPlayer);
+                pCreature->TextEmote("Valami nem jó!", pPlayer);
         }
     }
  
@@ -157,7 +157,7 @@ public:
                 AddGossipItemFor(pPlayer, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\INV_Misc_Herb_07:30|t Herbalism.", GOSSIP_SENDER_MAIN, 9);
                 AddGossipItemFor(pPlayer, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\inv_misc_pelt_wolf_01:30|t Skinning.", GOSSIP_SENDER_MAIN, 10);
                 AddGossipItemFor(pPlayer, GOSSIP_ICON_INTERACT_2, "|TInterface\\icons\\trade_mining:30|t Mining.", GOSSIP_SENDER_MAIN, 11);
-                AddGossipItemFor(pPlayer, GOSSIP_ICON_TALK, "|TInterface/ICONS/Thrown_1H_Harpoon_D_01Blue:30|t Nevermind!", GOSSIP_SENDER_MAIN, 12);
+                AddGossipItemFor(pPlayer, GOSSIP_ICON_TALK, "|TInterface/ICONS/Thrown_1H_Harpoon_D_01Blue:30|t Legközelebb!", GOSSIP_SENDER_MAIN, 12);
                 pPlayer->PlayerTalkClass->SendGossipMenu(1, _creature->GetGUID());
                 break;
             case 1:

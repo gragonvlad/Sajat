@@ -298,7 +298,7 @@ SpellImplicitTargetInfo::StaticData  SpellImplicitTargetInfo::_data[TOTAL_SPELL_
     {TARGET_OBJECT_TYPE_DEST, TARGET_REFERENCE_TYPE_DEST,   TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_RANDOM},      // 86 TARGET_DEST_DEST_RANDOM
     {TARGET_OBJECT_TYPE_DEST, TARGET_REFERENCE_TYPE_DEST,   TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_NONE},        // 87 TARGET_DEST_DEST
     {TARGET_OBJECT_TYPE_DEST, TARGET_REFERENCE_TYPE_DEST,   TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_NONE},        // 88 TARGET_DEST_DYNOBJ_NONE
-    {TARGET_OBJECT_TYPE_DEST, TARGET_REFERENCE_TYPE_DEST,   TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_NONE},        // 89 TARGET_DEST_TRAJ
+    {TARGET_OBJECT_TYPE_DEST, TARGET_REFERENCE_TYPE_DEST,   TARGET_SELECT_CATEGORY_TRAJ,    TARGET_CHECK_DEFAULT,  TARGET_DIR_NONE},        // 89 TARGET_DEST_TRAJ
     {TARGET_OBJECT_TYPE_UNIT, TARGET_REFERENCE_TYPE_TARGET, TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_NONE},        // 90 TARGET_UNIT_TARGET_MINIPET
     {TARGET_OBJECT_TYPE_DEST, TARGET_REFERENCE_TYPE_DEST,   TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_RANDOM},      // 91 TARGET_DEST_DEST_RADIUS
     {TARGET_OBJECT_TYPE_UNIT, TARGET_REFERENCE_TYPE_CASTER, TARGET_SELECT_CATEGORY_DEFAULT, TARGET_CHECK_DEFAULT,  TARGET_DIR_NONE},        // 92 TARGET_UNIT_SUMMONER
@@ -391,8 +391,7 @@ bool SpellEffectInfo::IsFarUnitTargetEffect() const
     return (Effect == SPELL_EFFECT_SUMMON_PLAYER)
         || (Effect == SPELL_EFFECT_SUMMON_RAF_FRIEND)
         || (Effect == SPELL_EFFECT_RESURRECT)
-        || (Effect == SPELL_EFFECT_RESURRECT_NEW)
-        || (Effect == SPELL_EFFECT_SKIN_PLAYER_CORPSE);
+        || (Effect == SPELL_EFFECT_RESURRECT_NEW);
 }
 
 bool SpellEffectInfo::IsFarDestTargetEffect() const
@@ -412,14 +411,16 @@ int32 SpellEffectInfo::CalcValue(Unit const* caster, int32 const* bp, Unit const
     int32 randomPoints = int32(DieSides);
 
     // base amount modification based on spell lvl vs caster lvl
-    if (caster)
+    if (caster && basePointsPerLevel != 0.0f)
     {
         int32 level = int32(caster->getLevel());
         if (level > int32(_spellInfo->MaxLevel) && _spellInfo->MaxLevel > 0)
             level = int32(_spellInfo->MaxLevel);
         else if (level < int32(_spellInfo->BaseLevel))
             level = int32(_spellInfo->BaseLevel);
-        level -= int32(_spellInfo->SpellLevel);
+
+        // if base level is greater than spell level, reduce by base level (eg. pilgrims foods)
+        level -= int32(std::max(_spellInfo->BaseLevel, _spellInfo->SpellLevel));
         basePoints += int32(level * basePointsPerLevel);
     }
 
@@ -858,6 +859,8 @@ SpellInfo::SpellInfo(SpellEntry const* spellEntry)
 
     _spellSpecific = SPELL_SPECIFIC_NORMAL;
     _auraState = AURA_STATE_NONE;
+
+    _allowedMechanicMask = 0;
 }
 
 SpellInfo::~SpellInfo()
@@ -1232,7 +1235,8 @@ bool SpellInfo::IsBreakingStealth() const
 bool SpellInfo::IsRangedWeaponSpell() const
 {
     return (SpellFamilyName == SPELLFAMILY_HUNTER && !(SpellFamilyFlags[1] & 0x10000000)) // for 53352, cannot find better way
-        || (EquippedItemSubClassMask & ITEM_SUBCLASS_MASK_WEAPON_RANGED);
+        || (EquippedItemSubClassMask & ITEM_SUBCLASS_MASK_WEAPON_RANGED)
+        || (Attributes & SPELL_ATTR0_REQ_AMMO);
 }
 
 bool SpellInfo::IsAutoRepeatRangedSpell() const
@@ -1629,16 +1633,9 @@ SpellCastResult SpellInfo::CheckTarget(Unit const* caster, WorldObject const* ta
     // creature/player specific target checks
     if (unitTarget)
     {
-        if (HasAttribute(SPELL_ATTR1_CANT_TARGET_IN_COMBAT))
-        {
-            if (unitTarget->IsInCombat())
-                return SPELL_FAILED_TARGET_AFFECTING_COMBAT;
-            // player with active pet counts as a player in combat
-            else if (Player const* player = unitTarget->ToPlayer())
-                if (Pet* pet = player->GetPet())
-                    if (pet->GetVictim() && !pet->HasUnitState(UNIT_STATE_CONTROLLED))
-                        return SPELL_FAILED_TARGET_AFFECTING_COMBAT;
-        }
+        // spells cannot be cast if player is in fake combat also
+        if (HasAttribute(SPELL_ATTR1_CANT_TARGET_IN_COMBAT) && (unitTarget->IsInCombat() || unitTarget->IsPetInCombat()))
+            return SPELL_FAILED_TARGET_AFFECTING_COMBAT;
 
         // only spells with SPELL_ATTR3_ONLY_TARGET_GHOSTS can target ghosts
         if (HasAttribute(SPELL_ATTR3_ONLY_TARGET_GHOSTS) != unitTarget->HasAuraType(SPELL_AURA_GHOST))
@@ -2787,7 +2784,34 @@ void SpellInfo::_LoadImmunityInfo()
 
         immuneInfo.AuraTypeImmune.shrink_to_fit();
         immuneInfo.SpellEffectImmune.shrink_to_fit();
+
+        _allowedMechanicMask |= immuneInfo.MechanicImmuneMask;
     }
+
+    if (HasAttribute(SPELL_ATTR5_USABLE_WHILE_STUNNED))
+    {
+        switch (Id)
+        {
+            case 22812: // Barkskin
+                _allowedMechanicMask |=
+                    (1 << MECHANIC_STUN) |
+                    (1 << MECHANIC_FREEZE) |
+                    (1 << MECHANIC_KNOCKOUT) |
+                    (1 << MECHANIC_SLEEP);
+                break;
+            case 49039: // Lichborne, don't allow normal stuns
+                break;
+            default:
+                _allowedMechanicMask |= (1 << MECHANIC_STUN);
+                break;
+        }
+    }
+
+    if (HasAttribute(SPELL_ATTR5_USABLE_WHILE_CONFUSED))
+        _allowedMechanicMask |= (1 << MECHANIC_DISORIENTED);
+
+    if (HasAttribute(SPELL_ATTR5_USABLE_WHILE_FEARED))
+        _allowedMechanicMask |= (1 << MECHANIC_FEAR);
 }
 
 void SpellInfo::ApplyAllSpellImmunitiesTo(Unit* target, uint8 effIndex, bool apply) const
@@ -2819,7 +2843,13 @@ void SpellInfo::ApplyAllSpellImmunitiesTo(Unit* target, uint8 effIndex, bool app
                 target->ApplySpellImmune(Id, IMMUNITY_MECHANIC, i, apply);
 
         if (apply && HasAttribute(SPELL_ATTR1_DISPEL_AURAS_ON_IMMUNITY))
-            target->RemoveAurasWithMechanic(mechanicImmunity, AURA_REMOVE_BY_DEFAULT, Id);
+        {
+            // exception for purely snare mechanic (eg. hands of freedom)!
+            if (mechanicImmunity == (1 << MECHANIC_SNARE))
+                target->RemoveMovementImpairingAuras(false);
+            else
+                target->RemoveAurasWithMechanic(mechanicImmunity, AURA_REMOVE_BY_DEFAULT, Id);
+        }
     }
 
     if (uint32 dispelImmunity = immuneInfo->DispelImmune)
@@ -2979,6 +3009,11 @@ bool SpellInfo::SpellCancelsAuraEffect(SpellInfo const* auraSpellInfo, uint8 aur
     return false;
 }
 
+uint32 SpellInfo::GetAllowedMechanicMask() const
+{
+    return _allowedMechanicMask;
+}
+
 float SpellInfo::GetMinRange(bool positive) const
 {
     if (!RangeEntry)
@@ -3077,7 +3112,7 @@ uint32 SpellInfo::GetRecoveryTime() const
     return RecoveryTime > CategoryRecoveryTime ? RecoveryTime : CategoryRecoveryTime;
 }
 
-int32 SpellInfo::CalcPowerCost(Unit const* caster, SpellSchoolMask schoolMask) const
+int32 SpellInfo::CalcPowerCost(Unit const* caster, SpellSchoolMask schoolMask, Spell* spell) const
 {
     // Spell drain all exist power on cast (Only paladin lay of Hands)
     if (HasAttribute(SPELL_ATTR1_DRAIN_ALL_POWER))
@@ -3139,7 +3174,7 @@ int32 SpellInfo::CalcPowerCost(Unit const* caster, SpellSchoolMask schoolMask) c
 
     // Apply cost mod by spell
     if (Player* modOwner = caster->GetSpellModOwner())
-        modOwner->ApplySpellMod<SPELLMOD_COST>(Id, powerCost);
+        modOwner->ApplySpellMod<SPELLMOD_COST>(Id, powerCost, spell);
 
     if (!caster->IsControlledByPlayer())
     {
