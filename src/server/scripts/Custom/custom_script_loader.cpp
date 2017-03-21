@@ -32,6 +32,7 @@ void AddSC_MTG_TopKills();
 void AddSC_Npc_Beastmaster();
 void AddSC_Npc_Valto();
 void AddSC_Transmogrification();
+void AddSC_NPC_Teleporter();
 
 void AddCustomScripts()
 {
@@ -46,4 +47,5 @@ void AddCustomScripts()
 	AddSC_Npc_Beastmaster();
 	AddSC_Npc_Valto();
 	AddSC_Transmogrification();
+	AddSC_NPC_Teleporter();
 }

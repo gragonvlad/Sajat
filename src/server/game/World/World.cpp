@@ -1353,6 +1353,9 @@ void World::LoadConfigSettings(bool reload)
 
     // Allow to cache data queries
     m_bool_configs[CONFIG_CACHE_DATA_QUERIES] = sConfigMgr->GetBoolDefault("CacheDataQueries", true);
+	
+	// Sanctuary Zones
+	m_bool_configs[CONFIG_SANCTUARY_ENABLE] = sConfigMgr->GetIntDefault("Sanctuary.Enable", false);
 
     // call ScriptMgr if we're reloading the configuration
     if (reload)
@@ -1963,6 +1966,14 @@ void World::SetInitialWorldSettings()
 
     TC_LOG_INFO("server.loading", "Calculate guild limitation(s) reset time...");
     InitGuildResetTime();
+	
+	TC_LOG_INFO("server.loading", "");
+    TC_LOG_INFO("server.loading", "Loading Sanctuary Areas...");
+    sObjectMgr->LoadSanctuaryAreas();
+
+	TC_LOG_INFO("server.loading", "");
+    TC_LOG_INFO("server.loading", "Loading Sanctuary Zones...");
+    sObjectMgr->LoadSanctuaryZones();
 
     // Preload all cells, if required for the base maps
     if (sWorld->getBoolConfig(CONFIG_BASEMAP_LOAD_GRIDS))

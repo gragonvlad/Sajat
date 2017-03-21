@@ -132,6 +132,8 @@ public:
             { "reputation_reward_rate",        rbac::RBAC_PERM_COMMAND_RELOAD_REPUTATION_REWARD_RATE,           true,  &HandleReloadReputationRewardRateCommand,       "" },
             { "reputation_spillover_template", rbac::RBAC_PERM_COMMAND_RELOAD_SPILLOVER_TEMPLATE,               true,  &HandleReloadReputationRewardRateCommand,       "" },
             { "skill_discovery_template",      rbac::RBAC_PERM_COMMAND_RELOAD_SKILL_DISCOVERY_TEMPLATE,         true,  &HandleReloadSkillDiscoveryTemplateCommand,     "" },
+			{ "sanctuary_areas",              SEC_ADMINISTRATOR, true,  &HandleReloadSanctuaryAreasCommand,             "", NULL },
+			{ "sanctuary_zones",              SEC_ADMINISTRATOR, true,  &HandleReloadSanctuaryZonesCommand,             "", NULL },
             { "skill_extra_item_template",     rbac::RBAC_PERM_COMMAND_RELOAD_SKILL_EXTRA_ITEM_TEMPLATE,        true,  &HandleReloadSkillExtraItemTemplateCommand,     "" },
             { "skill_fishing_base_level",      rbac::RBAC_PERM_COMMAND_RELOAD_SKILL_FISHING_BASE_LEVEL,         true,  &HandleReloadSkillFishingBaseLevelCommand,      "" },
             { "skinning_loot_template",        rbac::RBAC_PERM_COMMAND_RELOAD_SKINNING_LOOT_TEMPLATE,           true,  &HandleReloadLootTemplatesSkinningCommand,      "" },
@@ -921,6 +923,34 @@ public:
         if (*args != 'a')
             handler->SendGlobalGMSysMessage("DB table `waypoint_scripts` reloaded.");
 
+        return true;
+    }
+	
+	static bool HandleReloadSanctuaryAreasCommand(ChatHandler* handler, const char* args)
+    {
+		if (*args != 'a')
+			TC_LOG_INFO("misc", "Re-Loading Sanctuary Areas...");
+			
+        sObjectMgr->LoadSanctuaryAreas();
+		
+		if (*args != 'a')
+			handler->SendGlobalGMSysMessage("DB table `sanctuary_areas` reloaded.");
+			
+			
+        return true;
+    }
+
+	static bool HandleReloadSanctuaryZonesCommand(ChatHandler* handler, const char* args)
+    {
+		if (*args != 'a')
+			TC_LOG_INFO("misc", "Re-Loading Sanctuary Zones...");
+			
+        sObjectMgr->LoadSanctuaryZones();
+		
+		if (*args != 'a')
+        handler->SendGlobalGMSysMessage("DB table `sanctuary_zones` reloaded.");
+		
+		
         return true;
     }
 

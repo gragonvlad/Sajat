@@ -688,6 +688,9 @@ struct DungeonEncounter
 typedef std::list<DungeonEncounter const*> DungeonEncounterList;
 typedef std::unordered_map<uint32, DungeonEncounterList> DungeonEncounterContainer;
 
+typedef std::vector<uint32> SanctuaryAreasList;
+typedef std::vector<uint32> SanctuaryZonesList;
+
 enum QueryDataGroup
 {
     QUERY_DATA_CREATURES        = 0x01,
@@ -1016,6 +1019,8 @@ class TC_GAME_API ObjectMgr
         void LoadMailLevelRewards();
         void LoadVehicleTemplateAccessories();
         void LoadVehicleAccessories();
+		void LoadSanctuaryAreas();
+		void LoadSanctuaryZones();
 
         void LoadGossipText();
 
@@ -1334,6 +1339,9 @@ class TC_GAME_API ObjectMgr
         void LoadFactionChangeReputations();
         void LoadFactionChangeSpells();
         void LoadFactionChangeTitles();
+
+		SanctuaryZonesList SanctuaryZones; 
+		SanctuaryAreasList SanctuaryAreas;
 
         bool IsTransportMap(uint32 mapId) const { return _transportMaps.count(mapId) != 0; }
 

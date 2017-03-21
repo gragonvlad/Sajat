@@ -7130,6 +7130,20 @@ uint32 Player::GetZoneIdFromDB(ObjectGuid guid)
     return zone;
 }
 
+bool IsSanctuaryArea(uint32 areaId)
+{
+	if (!sWorld->getBoolConfig(CONFIG_SANCTUARY_ENABLE))
+		return false;
+
+	if (sObjectMgr->SanctuaryAreas.size() == 0)
+		return false;
+
+	for (uint32 i=0; i < sObjectMgr->SanctuaryAreas.size(); ++i)
+		if (areaId == sObjectMgr->SanctuaryAreas[i])
+			return true;
+	return false;
+}
+
 void Player::UpdateArea(uint32 newArea)
 {
     // FFA_PVP flags are area and not zone id dependent
@@ -7150,6 +7164,7 @@ void Player::UpdateArea(uint32 newArea)
     // previously this was in UpdateZone (but after UpdateArea) so nothing will break
     pvpInfo.IsInNoPvPArea = false;
     if (area && area->IsSanctuary())    // in sanctuary
+		if (area && (area->IsSanctuary() || IsSanctuaryArea(area->ID)))    // in sanctuary
     {
         SetByteFlag(UNIT_FIELD_BYTES_2, UNIT_BYTES_2_OFFSET_PVP_FLAG, UNIT_BYTE2_FLAG_SANCTUARY);
         pvpInfo.IsInNoPvPArea = true;
@@ -7165,6 +7180,21 @@ void Player::UpdateArea(uint32 newArea)
     else
         RemoveRestFlag(REST_FLAG_IN_FACTION_AREA);
 }
+
+bool IsSanctuaryZone(uint32 zoneId)
+{
+	if (!sWorld->getBoolConfig(CONFIG_SANCTUARY_ENABLE))
+		return false;
+
+	if (sObjectMgr->SanctuaryZones.size() == 0)
+		return false;
+
+	for (uint32 i=0; i < sObjectMgr->SanctuaryZones.size(); ++i)
+		if (zoneId == sObjectMgr->SanctuaryZones[i])
+			return true;
+	return false;
+}
+
 
 void Player::UpdateZone(uint32 newZone, uint32 newArea)
 {
@@ -7228,7 +7258,7 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
 
     if (zone->flags & AREA_FLAG_CAPITAL)                     // Is in a capital city
     {
-        if (!pvpInfo.IsHostile || zone->IsSanctuary())
+        if (!pvpInfo.IsHostile || zone->IsSanctuary() || IsSanctuaryZone(zone->ID))
             SetRestFlag(REST_FLAG_IN_CITY);
 
         pvpInfo.IsInNoPvPArea = true;

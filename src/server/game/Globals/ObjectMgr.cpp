@@ -3074,6 +3074,70 @@ void ObjectMgr::LoadVehicleAccessories()
     TC_LOG_INFO("server.loading", ">> Loaded %u Vehicle Accessories in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
+void ObjectMgr::LoadSanctuaryAreas()
+{
+	
+	if (!sWorld->getBoolConfig(CONFIG_SANCTUARY_ENABLE))
+	{
+		TC_LOG_INFO("misc", ">> Sanctuary is NOT enabled, skip loading...");
+		TC_LOG_INFO("misc", "");
+		return;
+	}
+
+	uint32 oldMSTime = getMSTime();
+
+    SanctuaryAreas.clear();
+
+	uint32 count = 0;
+
+    QueryResult result = WorldDatabase.Query("SELECT areaId FROM sanctuary_areas WHERE active = 1");
+    if (result)
+	{
+        do
+        {
+			uint32 areaId = (*result)[0].GetUInt32();
+
+			SanctuaryAreas.push_back(areaId);
+			++count;
+        } while (result->NextRow());
+	}
+
+    TC_LOG_INFO("misc", ">> Loaded %u Sanctuary Areas entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("misc", "");
+}
+
+void ObjectMgr::LoadSanctuaryZones()
+{
+
+	if (!sWorld->getBoolConfig(CONFIG_SANCTUARY_ENABLE))
+	{
+		TC_LOG_INFO("misc", ">> Sanctuary is NOT enabled, skip loading...");
+		TC_LOG_INFO("misc", "");
+		return;
+	}
+
+	uint32 oldMSTime = getMSTime();
+
+    SanctuaryZones.clear();
+
+	uint32 count = 0;
+
+    QueryResult result = WorldDatabase.Query("SELECT zoneId FROM sanctuary_zones");
+    if (result)
+	{
+        do
+        {
+			uint32 zoneId = (*result)[0].GetUInt32();
+
+			SanctuaryZones.push_back(zoneId);
+			++count;
+        } while (result->NextRow());
+	}
+
+    TC_LOG_INFO("misc", ">> Loaded %u Sanctuary Zones entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
+    TC_LOG_INFO("misc", "");
+}
+
 void ObjectMgr::LoadPetLevelInfo()
 {
     uint32 oldMSTime = getMSTime();
