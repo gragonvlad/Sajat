@@ -3079,8 +3079,7 @@ void ObjectMgr::LoadSanctuaryAreas()
 	
 	if (!sWorld->getBoolConfig(CONFIG_SANCTUARY_ENABLE))
 	{
-		TC_LOG_INFO("misc", ">> Sanctuary is NOT enabled, skip loading...");
-		TC_LOG_INFO("misc", "");
+		TC_LOG_INFO("server.loading", ">> Sanctuary is NOT enabled, skip loading...");
 		return;
 	}
 
@@ -3102,8 +3101,7 @@ void ObjectMgr::LoadSanctuaryAreas()
         } while (result->NextRow());
 	}
 
-    TC_LOG_INFO("misc", ">> Loaded %u Sanctuary Areas entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
-    TC_LOG_INFO("misc", "");
+    TC_LOG_INFO("server.loading", ">> Loaded %u Sanctuary Areas entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::LoadSanctuaryZones()
@@ -3111,8 +3109,7 @@ void ObjectMgr::LoadSanctuaryZones()
 
 	if (!sWorld->getBoolConfig(CONFIG_SANCTUARY_ENABLE))
 	{
-		TC_LOG_INFO("misc", ">> Sanctuary is NOT enabled, skip loading...");
-		TC_LOG_INFO("misc", "");
+		TC_LOG_INFO("server.loading", ">> Sanctuary is NOT enabled, skip loading...");
 		return;
 	}
 
@@ -3134,8 +3131,7 @@ void ObjectMgr::LoadSanctuaryZones()
         } while (result->NextRow());
 	}
 
-    TC_LOG_INFO("misc", ">> Loaded %u Sanctuary Zones entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
-    TC_LOG_INFO("misc", "");
+    TC_LOG_INFO("server.loading", ">> Loaded %u Sanctuary Zones entries in %u ms", count, GetMSTimeDiffToNow(oldMSTime));
 }
 
 void ObjectMgr::LoadPetLevelInfo()
